@@ -2,521 +2,600 @@
  * FILE: main.cpp
  * 
  * PURPOSE:
- *   Application entry point for the GPU Compute Benchmark Tool.
+ *   Main entry point for the GPU Benchmark application.
  *   
- *   This is where everything starts! When you run GPU-Benchmark.exe,
- *   execution begins at main() in this file.
+ *   This application provides a comprehensive GPU compute benchmarking suite
+ *   that works across multiple GPU APIs (CUDA, OpenCL, DirectCompute) and
+ *   tests various computational patterns:
+ *     - Memory bandwidth (Vector Addition)
+ *     - Compute throughput (Matrix Multiplication)
+ *     - Mixed workloads (Convolution, Reduction)
  * 
- * WHAT THIS FILE DOES:
- *   1. Parse command-line arguments
- *   2. Initialize logging
- *   3. Detect system capabilities (GPU, APIs)
- *   4. Initialize available backends (CUDA, OpenCL, DirectCompute)
- *   5. Run benchmarks
- *   6. Display and export results
- *   7. Clean up and exit
+ * DESIGN PHILOSOPHY:
+ *   - **Hardware Agnostic:** Same executable adapts to NVIDIA, AMD, Intel GPUs
+ *   - **User Friendly:** Clear output, no cryptic error messages
+ *   - **Comprehensive:** Tests multiple aspects of GPU performance
+ *   - **Verifiable:** All results validated against CPU reference
  * 
- * EXECUTION FLOW:
- *   main()
- *     └─→ Discover system capabilities
- *     └─→ Initialize backends
- *     └─→ If GUI mode:
- *          └─→ Launch GUI window
- *          └─→ User selects benchmarks
- *          └─→ Run selected benchmarks
- *          └─→ Display results in real-time
- *     └─→ If CLI mode:
- *          └─→ Run all benchmarks
- *          └─→ Export results to CSV
- *     └─→ Cleanup and exit
+ * USER WORKFLOW:
+ *   1. Application detects available GPUs and APIs
+ *   2. User selects benchmark suite (Quick/Standard/Full)
+ *   3. Benchmarks execute with progress display
+ *   4. Results shown on screen and exported to CSV
+ *   5. Summary with performance analysis
  * 
- * COMMAND-LINE EXAMPLES:
- *   GPU-Benchmark.exe                          # Launch GUI mode
- *   GPU-Benchmark.exe --cli --all              # Run all benchmarks
- *   GPU-Benchmark.exe --benchmark=vector_add   # Run specific benchmark
- *   GPU-Benchmark.exe --backend=cuda           # Use only CUDA
- *   GPU-Benchmark.exe --output=results.csv     # Specify output file
+ * COMMAND-LINE USAGE:
+ *   GPU-Benchmark.exe                    # Interactive mode
+ *   GPU-Benchmark.exe --quick            # Quick benchmark suite
+ *   GPU-Benchmark.exe --standard         # Standard benchmark suite
+ *   GPU-Benchmark.exe --full             # Full benchmark suite
+ *   GPU-Benchmark.exe --help             # Show usage information
  * 
  * AUTHOR: Soham
  * DATE: January 2026
- * SYSTEM: Windows 11, Visual Studio 2022
+ * SYSTEM: Windows 11, Visual Studio 2022, RTX 3050, CUDA 13.1
  * 
  ******************************************************************************/
 
-// Core framework includes
+#include "core/Logger.h"
+#include "core/BenchmarkRunner.h"
 #include "core/DeviceDiscovery.h"
-#include "core/Timer.h"
+#include "benchmarks/VectorAddBenchmark.h"
+#include "benchmarks/MatrixMulBenchmark.h"
+#include "benchmarks/ConvolutionBenchmark.h"
+#include "benchmarks/ReductionBenchmark.h"
 
-// Standard library
 #include <iostream>
 #include <string>
 #include <vector>
-#include <memory>
-#include <cstdlib>  // For exit codes
+#include <cstring>
 
-// Windows-specific headers
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-// Using declarations to reduce typing
 using namespace GPUBenchmark;
 
 /*******************************************************************************
- * STRUCT: CommandLineArgs
- * 
- * Parsed command-line arguments.
- * 
- * Contains all user-specified options from command line.
+ * BENCHMARK SUITE DEFINITIONS
  ******************************************************************************/
-struct CommandLineArgs {
-    bool showHelp;                          // Show help message?
-    bool cliMode;                           // Command-line mode (no GUI)?
-    bool runAll;                            // Run all benchmarks?
-    std::vector<std::string> benchmarks;    // Specific benchmarks to run
-    std::vector<std::string> backends;      // Specific backends to use
-    std::string outputFile;                 // CSV output file path
-    bool verbose;                           // Verbose output?
-    
-    // Constructor with defaults
-    CommandLineArgs()
-        : showHelp(false)
-        , cliMode(false)
-        , runAll(false)
-        , outputFile("results/benchmark_results.csv")
-        , verbose(false)
-    {}
+
+// Benchmark suite types
+enum class BenchmarkSuite {
+    QUICK,      // Fast overview (~30 seconds)
+    STANDARD,   // Balanced testing (~2 minutes)
+    FULL,       // Comprehensive analysis (~5 minutes)
+    CUSTOM      // User-selected benchmarks
 };
 
 /*******************************************************************************
  * FUNCTION PROTOTYPES
- * 
- * Forward declarations of functions defined later in this file.
  ******************************************************************************/
 
-// Parse command-line arguments
-CommandLineArgs ParseCommandLine(int argc, char* argv[]);
-
-// Print usage information
-void PrintUsage();
-
-// Print welcome banner
 void PrintBanner();
-
-// Run benchmarks in CLI mode
-int RunCLIMode(const CommandLineArgs& args, const SystemCapabilities& caps);
-
-// Run GUI mode
-int RunGUIMode(const CommandLineArgs& args, const SystemCapabilities& caps);
+void PrintHelp();
+void PrintSystemInfo(const SystemCapabilities& caps);
+void PrintBackendAvailability(const SystemCapabilities& caps);
+BenchmarkSuite ParseCommandLine(int argc, char* argv[]);
+std::vector<BenchmarkResult> RunQuickSuite(IComputeBackend* backend);
+std::vector<BenchmarkResult> RunStandardSuite(IComputeBackend* backend);
+std::vector<BenchmarkResult> RunFullSuite(IComputeBackend* backend);
+void PrintSummary(const std::vector<BenchmarkResult>& results);
 
 /*******************************************************************************
- * FUNCTION: main()
- * 
- * Application entry point.
- * 
- * PARAMETERS:
- *   argc: Argument count (number of command-line arguments)
- *   argv: Argument vector (array of argument strings)
- * 
- * RETURN VALUE:
- *   0: Success
- *   1: Error
- * 
- * EXECUTION FLOW:
- *   1. Parse command-line arguments
- *   2. Show help if requested
- *   3. Print welcome banner
- *   4. Discover system capabilities
- *   5. Check if any backend available
- *   6. Launch appropriate mode (CLI or GUI)
- *   7. Return exit code
- * 
- * ERROR HANDLING:
- *   All exceptions are caught and logged.
- *   Application never crashes - always exits gracefully with error message.
+ * MAIN FUNCTION
  ******************************************************************************/
+
 int main(int argc, char* argv[]) {
-    // Enable Windows console colors (for colored output)
-    // This allows us to use colors in console (errors in red, warnings in yellow, etc.)
-    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    DWORD consoleMode = 0;
-    GetConsoleMode(hConsole, &consoleMode);
-    consoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    SetConsoleMode(hConsole, consoleMode);
+    Logger& logger = Logger::GetInstance();
     
-    // Wrap everything in try-catch for safety
-    // If anything goes wrong, we'll catch it and exit gracefully
-    try {
-        // =====================================================================
-        // STEP 1: Parse Command-Line Arguments
-        // =====================================================================
-        CommandLineArgs args = ParseCommandLine(argc, argv);
-        
-        // If user asked for help, show usage and exit
-        if (args.showHelp) {
-            PrintUsage();
-            return 0;
-        }
-        
-        // =====================================================================
-        // STEP 2: Print Welcome Banner
-        // =====================================================================
-        PrintBanner();
-        
-        // =====================================================================
-        // STEP 3: Discover System Capabilities
-        // =====================================================================
-        std::cout << "\n=== System Discovery ===\n" << std::endl;
-        
-        Timer discoveryTimer;
-        discoveryTimer.Start();
-        
-        // This is where we detect GPUs, CUDA, OpenCL, DirectCompute, etc.
-        // See DeviceDiscovery.cpp for implementation details
-        SystemCapabilities caps = DeviceDiscovery::Discover();
-        
-        discoveryTimer.Stop();
-        
-        std::cout << "\nDiscovery completed in " 
-                  << discoveryTimer.GetMilliseconds() << " ms\n" << std::endl;
-        
-        // Print detailed capability information
-        DeviceDiscovery::PrintCapabilities(caps);
-        
-        // =====================================================================
-        // STEP 4: Verify At Least One Backend Available
-        // =====================================================================
-        if (!caps.HasAnyBackend()) {
-            std::cerr << "\n[ERROR] No GPU compute backends available!" << std::endl;
-            std::cerr << "Possible reasons:" << std::endl;
-            std::cerr << "  - No compatible GPU detected" << std::endl;
-            std::cerr << "  - GPU drivers not installed or outdated" << std::endl;
-            std::cerr << "  - DirectX/OpenCL runtime not available" << std::endl;
-            std::cerr << "\nPlease install/update GPU drivers and try again." << std::endl;
-            return 1;
-        }
-        
-        // =====================================================================
-        // STEP 5: Launch Appropriate Mode
-        // =====================================================================
-        int exitCode = 0;
-        
-        if (args.cliMode) {
-            // Command-line mode: Run benchmarks without GUI
-            std::cout << "\n=== Running in CLI Mode ===\n" << std::endl;
-            exitCode = RunCLIMode(args, caps);
-        } else {
-            // GUI mode: Launch interactive window
-            std::cout << "\n=== Launching GUI Mode ===\n" << std::endl;
-            exitCode = RunGUIMode(args, caps);
-        }
-        
-        // =====================================================================
-        // STEP 6: Exit
-        // =====================================================================
-        if (exitCode == 0) {
-            std::cout << "\n=== Benchmark Completed Successfully ===\n" << std::endl;
-        } else {
-            std::cerr << "\n=== Benchmark Failed (Exit Code: " << exitCode << ") ===\n" << std::endl;
-        }
-        
-        return exitCode;
+    // Print application banner
+    PrintBanner();
+    
+    // Parse command-line arguments
+    BenchmarkSuite suite = ParseCommandLine(argc, argv);
+    
+    if (suite == BenchmarkSuite::CUSTOM && argc > 1 && 
+        (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        PrintHelp();
+        return 0;
     }
-    catch (const std::exception& e) {
-        // Catch any standard C++ exception
-        std::cerr << "\n[CRITICAL ERROR] Unhandled exception: " << e.what() << std::endl;
+    
+    logger.Info("==========================================================");
+    logger.Info("           GPU COMPUTE BENCHMARK SUITE");
+    logger.Info("==========================================================");
+    logger.Info("");
+    
+    // Step 1: Discover system capabilities
+    logger.Info("Step 1/4: Discovering system capabilities...");
+    logger.Info("");
+    
+    SystemCapabilities caps = DeviceDiscovery::Discover();
+    
+    PrintSystemInfo(caps);
+    PrintBackendAvailability(caps);
+    
+    // Step 2: Check if any backend is available
+    if (!caps.cuda.available && !caps.opencl.available && !caps.directCompute.available) {
+        logger.Error("No GPU compute backends available!");
+        logger.Error("Please ensure you have:");
+        logger.Error("  - A GPU installed");
+        logger.Error("  - Latest GPU drivers");
+        logger.Error("  - CUDA Toolkit (for NVIDIA GPUs)");
+        std::cout << "\nPress Enter to exit...";
+        std::cin.get();
         return 1;
     }
-    catch (...) {
-        // Catch any other type of exception
-        std::cerr << "\n[CRITICAL ERROR] Unknown exception occurred!" << std::endl;
+    
+    logger.Info("");
+    logger.Info("Step 2/4: Initializing GPU backend...");
+    logger.Info("");
+    
+    // Step 3: Initialize the best available backend
+    BenchmarkRunner runner;
+    SystemCapabilities discovered = runner.DiscoverBackends();
+    
+    // Get the initialized backend (prioritize CUDA > OpenCL > DirectCompute)
+    // Note: DiscoverBackends() already initialized available backends
+    BackendType selectedBackend = BackendType::Unknown;
+    IComputeBackend* backend = nullptr;
+    
+    if (caps.cuda.available) {
+        backend = runner.GetBackend(BackendType::CUDA);
+        if (backend) {
+            logger.Info("✓ Using CUDA backend");
+            selectedBackend = BackendType::CUDA;
+        }
+    } else if (caps.opencl.available) {
+        // TODO: Implement OpenCL
+        logger.Warning("OpenCL detected but not yet implemented");
+    } else if (caps.directCompute.available) {
+        // TODO: Implement DirectCompute
+        logger.Warning("DirectCompute detected but not yet implemented");
+    }
+    
+    if (!backend || selectedBackend == BackendType::Unknown) {
+        logger.Error("Failed to initialize any GPU backend!");
+        std::cout << "\nPress Enter to exit...";
+        std::cin.get();
         return 1;
     }
-}
-
-/*******************************************************************************
- * FUNCTION: ParseCommandLine()
- * 
- * Parse command-line arguments into CommandLineArgs structure.
- * 
- * SUPPORTED ARGUMENTS:
- *   --help, -h              : Show usage information
- *   --cli                   : Run in command-line mode (no GUI)
- *   --all                   : Run all benchmarks
- *   --benchmark=<name>      : Run specific benchmark
- *   --backend=<name>        : Use specific backend only
- *   --output=<file>         : Specify output CSV file
- *   --verbose, -v           : Enable verbose output
- * 
- * EXAMPLES:
- *   --cli --all --output=results.csv
- *   --benchmark=vector_add --backend=cuda
- *   --help
- * 
- * IMPLEMENTATION:
- *   Simple string parsing. For production code, consider using a library
- *   like Boost.Program_options or cxxopts for more robust parsing.
- ******************************************************************************/
-CommandLineArgs ParseCommandLine(int argc, char* argv[]) {
-    CommandLineArgs args;
+    logger.Info("");
+    logger.Info("Step 3/4: Running benchmark suite...");
+    logger.Info("");
     
-    // Loop through all arguments (skip argv[0] which is program name)
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
-        
-        // Help
-        if (arg == "--help" || arg == "-h") {
-            args.showHelp = true;
-        }
-        // CLI mode
-        else if (arg == "--cli") {
-            args.cliMode = true;
-        }
-        // Run all benchmarks
-        else if (arg == "--all") {
-            args.runAll = true;
-        }
-        // Verbose
-        else if (arg == "--verbose" || arg == "-v") {
-            args.verbose = true;
-        }
-        // Benchmark specification: --benchmark=vector_add
-        else if (arg.find("--benchmark=") == 0) {
-            std::string benchmark = arg.substr(12);  // Skip "--benchmark="
-            args.benchmarks.push_back(benchmark);
-        }
-        // Backend specification: --backend=cuda
-        else if (arg.find("--backend=") == 0) {
-            std::string backend = arg.substr(10);  // Skip "--backend="
-            args.backends.push_back(backend);
-        }
-        // Output file: --output=results.csv
-        else if (arg.find("--output=") == 0) {
-            args.outputFile = arg.substr(9);  // Skip "--output="
-        }
-        // Unknown argument
-        else {
-            std::cerr << "Warning: Unknown argument: " << arg << std::endl;
-        }
+    // Initialize CSV logging
+    logger.InitializeCSV("benchmark_results.csv");
+    
+    // Run the selected benchmark suite
+    logger.Info("==========================================================");
+    logger.Info("                BENCHMARK EXECUTION");
+    logger.Info("==========================================================");
+    logger.Info("");
+    
+    std::vector<BenchmarkResult> results;
+    
+    switch (suite) {
+        case BenchmarkSuite::QUICK:
+            logger.Info("Running QUICK benchmark suite (estimated time: 30 seconds)");
+            results = RunQuickSuite(backend);
+            break;
+        case BenchmarkSuite::STANDARD:
+            logger.Info("Running STANDARD benchmark suite (estimated time: 2 minutes)");
+            results = RunStandardSuite(backend);
+            break;
+        case BenchmarkSuite::FULL:
+            logger.Info("Running FULL benchmark suite (estimated time: 5 minutes)");
+            results = RunFullSuite(backend);
+            break;
+        default:
+            logger.Info("Running STANDARD benchmark suite (default)");
+            results = RunStandardSuite(backend);
+            break;
     }
     
-    return args;
+    logger.Info("");
+    
+    // Print summary
+    PrintSummary(results);
+    
+    logger.Info("");
+    logger.Info("Step 4/4: Benchmark complete!");
+    logger.Info("");
+    
+    std::cout << "\nPress Enter to exit...";
+    std::cin.get();
+    
+    return 0;
 }
 
 /*******************************************************************************
- * FUNCTION: PrintUsage()
+ * PRINT BANNER
  * 
- * Print command-line usage information.
- * 
- * This is shown when user runs: GPU-Benchmark.exe --help
- ******************************************************************************/
-void PrintUsage() {
-    std::cout << "GPU Compute Benchmark Tool\n" << std::endl;
-    std::cout << "USAGE:" << std::endl;
-    std::cout << "  GPU-Benchmark.exe [options]\n" << std::endl;
-    
-    std::cout << "OPTIONS:" << std::endl;
-    std::cout << "  --help, -h                Show this help message" << std::endl;
-    std::cout << "  --cli                     Run in command-line mode (no GUI)" << std::endl;
-    std::cout << "  --all                     Run all benchmarks" << std::endl;
-    std::cout << "  --benchmark=<name>        Run specific benchmark" << std::endl;
-    std::cout << "                            Available: vector_add, matrix_mul, convolution, reduction" << std::endl;
-    std::cout << "  --backend=<name>          Use specific backend only" << std::endl;
-    std::cout << "                            Available: cuda, opencl, directcompute" << std::endl;
-    std::cout << "  --output=<file>           Specify CSV output file (default: results/benchmark_results.csv)" << std::endl;
-    std::cout << "  --verbose, -v             Enable verbose output\n" << std::endl;
-    
-    std::cout << "EXAMPLES:" << std::endl;
-    std::cout << "  GPU-Benchmark.exe" << std::endl;
-    std::cout << "      Launch GUI mode\n" << std::endl;
-    
-    std::cout << "  GPU-Benchmark.exe --cli --all" << std::endl;
-    std::cout << "      Run all benchmarks in CLI mode\n" << std::endl;
-    
-    std::cout << "  GPU-Benchmark.exe --cli --benchmark=vector_add --backend=cuda" << std::endl;
-    std::cout << "      Run vector addition on CUDA backend only\n" << std::endl;
-    
-    std::cout << "  GPU-Benchmark.exe --cli --all --output=my_results.csv" << std::endl;
-    std::cout << "      Run all benchmarks and save to custom file\n" << std::endl;
-}
-
-/*******************************************************************************
- * FUNCTION: PrintBanner()
- * 
- * Print ASCII art banner and application information.
- * 
- * This gives the application a professional look!
+ * Displays application title and version.
  ******************************************************************************/
 void PrintBanner() {
     std::cout << "\n";
-    std::cout << "╔═══════════════════════════════════════════════════════════════╗\n";
-    std::cout << "║                                                               ║\n";
-    std::cout << "║           GPU COMPUTE BENCHMARK & VISUALIZATION               ║\n";
-    std::cout << "║                                                               ║\n";
-    std::cout << "║         Comparing CUDA, OpenCL, and DirectCompute             ║\n";
-    std::cout << "║                                                               ║\n";
-    std::cout << "╚═══════════════════════════════════════════════════════════════╝\n";
+    std::cout << "╔════════════════════════════════════════════════════════════╗\n";
+    std::cout << "║                                                            ║\n";
+    std::cout << "║           GPU COMPUTE BENCHMARK SUITE v1.0                 ║\n";
+    std::cout << "║                                                            ║\n";
+    std::cout << "║  Comprehensive GPU performance testing across multiple     ║\n";
+    std::cout << "║  compute APIs (CUDA, OpenCL, DirectCompute)                ║\n";
+    std::cout << "║                                                            ║\n";
+    std::cout << "║  Author: Soham                                             ║\n";
+    std::cout << "║  Date: January 2026                                        ║\n";
+    std::cout << "║                                                            ║\n";
+    std::cout << "╚════════════════════════════════════════════════════════════╝\n";
     std::cout << "\n";
-    std::cout << "Author: Soham" << std::endl;
-    std::cout << "System: Windows 11 | AMD Ryzen 7 4800H | NVIDIA RTX 3050" << std::endl;
-    std::cout << "Version: 1.0.0" << std::endl;
-    std::cout << "Build Date: " << __DATE__ << " " << __TIME__ << std::endl;
 }
 
 /*******************************************************************************
- * FUNCTION: RunCLIMode()
+ * PRINT HELP
  * 
- * Run benchmarks in command-line interface mode (no GUI).
- * 
- * WORKFLOW:
- *   1. Initialize backends (CUDA, OpenCL, DirectCompute)
- *   2. Initialize CSV output file
- *   3. Run selected benchmarks
- *   4. Export results to CSV
- *   5. Print summary
- * 
- * PARAMETERS:
- *   args: Parsed command-line arguments
- *   caps: Detected system capabilities
- * 
- * RETURN:
- *   0 on success, 1 on failure
+ * Shows command-line usage information.
  ******************************************************************************/
-int RunCLIMode(const CommandLineArgs& args, const SystemCapabilities& caps) {
-    std::cout << "CLI Mode implementation:" << std::endl;
-    std::cout << "  This would initialize backends and run benchmarks" << std::endl;
-    std::cout << "  Results would be saved to: " << args.outputFile << std::endl;
+void PrintHelp() {
+    std::cout << "\nUSAGE:\n";
+    std::cout << "  GPU-Benchmark.exe [options]\n\n";
+    std::cout << "OPTIONS:\n";
+    std::cout << "  --quick        Run quick benchmark suite (~30 seconds)\n";
+    std::cout << "                 Tests: Vector Add (1M), Matrix Mul (512x512)\n\n";
+    std::cout << "  --standard     Run standard benchmark suite (~2 minutes) [DEFAULT]\n";
+    std::cout << "                 Tests: All benchmarks at moderate sizes\n\n";
+    std::cout << "  --full         Run full benchmark suite (~5 minutes)\n";
+    std::cout << "                 Tests: All benchmarks at large sizes with scaling analysis\n\n";
+    std::cout << "  --help, -h     Show this help message\n\n";
+    std::cout << "EXAMPLES:\n";
+    std::cout << "  GPU-Benchmark.exe              # Run with default settings\n";
+    std::cout << "  GPU-Benchmark.exe --quick      # Quick performance check\n";
+    std::cout << "  GPU-Benchmark.exe --full       # Comprehensive analysis\n\n";
+    std::cout << "OUTPUT:\n";
+    std::cout << "  Results are displayed on screen and exported to 'benchmark_results.csv'\n\n";
+}
+
+/*******************************************************************************
+ * PRINT SYSTEM INFO
+ * 
+ * Displays detected hardware and system information.
+ ******************************************************************************/
+void PrintSystemInfo(const SystemCapabilities& caps) {
+    Logger& logger = Logger::GetInstance();
     
-    // TODO: Implement full CLI mode
-    // This is a placeholder showing the structure
+    logger.Info("=== SYSTEM INFORMATION ===");
+    logger.Info("Operating System: " + caps.operatingSystem);
+    logger.Info("CPU: " + caps.cpuName);
+    logger.Info("RAM: " + std::to_string(caps.systemRAMMB / 1024) + " GB");
+    logger.Info("");
     
-    // 1. Initialize backends based on availability
-    std::cout << "\nInitializing backends..." << std::endl;
-    
-    if (caps.cuda.available && 
-        (args.backends.empty() || std::find(args.backends.begin(), args.backends.end(), "cuda") != args.backends.end())) {
-        std::cout << "  ✓ CUDA backend initialized" << std::endl;
+    if (caps.gpus.empty()) {
+        logger.Warning("No GPUs detected!");
+        return;
     }
     
-    if (caps.opencl.available && 
-        (args.backends.empty() || std::find(args.backends.begin(), args.backends.end(), "opencl") != args.backends.end())) {
-        std::cout << "  ✓ OpenCL backend initialized" << std::endl;
+    logger.Info("=== DETECTED GPUs ===");
+    for (size_t i = 0; i < caps.gpus.size(); ++i) {
+        const GPUInfo& gpu = caps.gpus[i];
+        logger.Info("GPU " + std::to_string(i + 1) + ": " + gpu.name);
+        logger.Info("  Vendor: " + gpu.vendor);
+        logger.Info("  Memory: " + std::to_string(gpu.totalMemoryMB / 1024) + " GB");
+        logger.Info("  Driver: " + gpu.driverVersion);
+        if (gpu.isPrimaryGPU) {
+            logger.Info("  [PRIMARY GPU]");
+        }
     }
+    logger.Info("");
+}
+
+/*******************************************************************************
+ * PRINT BACKEND AVAILABILITY
+ * 
+ * Shows which GPU compute APIs are available.
+ ******************************************************************************/
+void PrintBackendAvailability(const SystemCapabilities& caps) {
+    Logger& logger = Logger::GetInstance();
     
-    if (caps.directCompute.available && 
-        (args.backends.empty() || std::find(args.backends.begin(), args.backends.end(), "directcompute") != args.backends.end())) {
-        std::cout << "  ✓ DirectCompute backend initialized" << std::endl;
-    }
+    logger.Info("=== COMPUTE API AVAILABILITY ===");
     
-    // 2. Run benchmarks
-    std::cout << "\nRunning benchmarks..." << std::endl;
-    
-    if (args.runAll || args.benchmarks.empty()) {
-        std::cout << "  - Vector Addition" << std::endl;
-        std::cout << "  - Matrix Multiplication" << std::endl;
-        std::cout << "  - 2D Convolution" << std::endl;
-        std::cout << "  - Parallel Reduction" << std::endl;
+    // CUDA
+    if (caps.cuda.available) {
+        logger.Info("✓ CUDA: Available (" + caps.cuda.version + ")");
     } else {
-        for (const auto& benchmark : args.benchmarks) {
-            std::cout << "  - " << benchmark << std::endl;
+        logger.Warning("✗ CUDA: " + caps.cuda.unavailableReason);
+    }
+    
+    // OpenCL
+    if (caps.opencl.available) {
+        logger.Info("✓ OpenCL: Available (" + caps.opencl.version + ")");
+    } else {
+        logger.Warning("✗ OpenCL: " + caps.opencl.unavailableReason);
+    }
+    
+    // DirectCompute
+    if (caps.directCompute.available) {
+        logger.Info("✓ DirectCompute: Available (" + caps.directCompute.version + ")");
+    } else {
+        logger.Warning("✗ DirectCompute: " + caps.directCompute.unavailableReason);
+    }
+    
+    logger.Info("");
+}
+
+/*******************************************************************************
+ * PARSE COMMAND LINE
+ * 
+ * Parses command-line arguments to determine benchmark suite.
+ ******************************************************************************/
+BenchmarkSuite ParseCommandLine(int argc, char* argv[]) {
+    if (argc < 2) {
+        return BenchmarkSuite::STANDARD; // Default
+    }
+    
+    std::string arg = argv[1];
+    
+    if (arg == "--quick" || arg == "-q") {
+        return BenchmarkSuite::QUICK;
+    } else if (arg == "--standard" || arg == "-s") {
+        return BenchmarkSuite::STANDARD;
+    } else if (arg == "--full" || arg == "-f") {
+        return BenchmarkSuite::FULL;
+    } else if (arg == "--help" || arg == "-h") {
+        return BenchmarkSuite::CUSTOM;
+    }
+    
+    return BenchmarkSuite::STANDARD;
+}
+
+/*******************************************************************************
+ * BENCHMARK SUITE IMPLEMENTATIONS
+ ******************************************************************************/
+
+std::vector<BenchmarkResult> RunQuickSuite(IComputeBackend* backend) {
+    Logger& logger = Logger::GetInstance();
+    std::vector<BenchmarkResult> results;
+    
+    logger.Info("Quick Suite: Small problem sizes for rapid testing");
+    logger.Info("");
+    
+    // 1. Vector Add - 1M elements
+    logger.Info("[1/2] Vector Addition (1M elements, 10 iterations)");
+    try {
+        VectorAddBenchmark vecBench(1000000);
+        vecBench.SetIterations(10);
+        BenchmarkResult result = vecBench.Run(backend);
+        results.push_back(result);
+        logger.LogResult(result);
+    } catch (const std::exception& e) {
+        logger.Error("Vector Add failed: " + std::string(e.what()));
+    }
+    logger.Info("");
+    
+    // 2. Matrix Mul - 512x512
+    logger.Info("[2/2] Matrix Multiplication (512×512, 10 iterations)");
+    try {
+        MatrixMulBenchmark matBench(512);
+        matBench.SetIterations(10);
+        BenchmarkResult result = matBench.Run(backend);
+        results.push_back(result);
+        logger.LogResult(result);
+    } catch (const std::exception& e) {
+        logger.Error("Matrix Multiplication failed: " + std::string(e.what()));
+    }
+    logger.Info("");
+    
+    return results;
+}
+
+std::vector<BenchmarkResult> RunStandardSuite(IComputeBackend* backend) {
+    Logger& logger = Logger::GetInstance();
+    std::vector<BenchmarkResult> results;
+    
+    logger.Info("Standard Suite: Moderate problem sizes for comprehensive testing");
+    logger.Info("");
+    
+    // 1. Vector Add - 10M elements
+    logger.Info("[1/4] Vector Addition (10M elements, 100 iterations)");
+    try {
+        VectorAddBenchmark vecBench(10000000);
+        vecBench.SetIterations(100);
+        BenchmarkResult result = vecBench.Run(backend);
+        results.push_back(result);
+        logger.LogResult(result);
+    } catch (const std::exception& e) {
+        logger.Error("Vector Add failed: " + std::string(e.what()));
+    }
+    logger.Info("");
+    
+    // 2. Matrix Mul - 1024x1024
+    logger.Info("[2/4] Matrix Multiplication (1024×1024, 100 iterations)");
+    try {
+        MatrixMulBenchmark matBench(1024);
+        matBench.SetIterations(100);
+        BenchmarkResult result = matBench.Run(backend);
+        results.push_back(result);
+        logger.LogResult(result);
+    } catch (const std::exception& e) {
+        logger.Error("Matrix Multiplication failed: " + std::string(e.what()));
+    }
+    logger.Info("");
+    
+    // 3. Convolution - 1920x1080 (Full HD)
+    logger.Info("[3/4] 2D Convolution (1920×1080, 100 iterations)");
+    try {
+        ConvolutionBenchmark convBench(1920, 1080);
+        convBench.SetIterations(100);
+        BenchmarkResult result = convBench.Run(backend);
+        results.push_back(result);
+        logger.LogResult(result);
+    } catch (const std::exception& e) {
+        logger.Error("Convolution failed: " + std::string(e.what()));
+    }
+    logger.Info("");
+    
+    // 4. Reduction - 10M elements
+    logger.Info("[4/4] Parallel Reduction (10M elements, 100 iterations)");
+    try {
+        ReductionBenchmark redBench(10000000);
+        redBench.SetIterations(100);
+        BenchmarkResult result = redBench.Run(backend);
+        results.push_back(result);
+        logger.LogResult(result);
+    } catch (const std::exception& e) {
+        logger.Error("Reduction failed: " + std::string(e.what()));
+    }
+    logger.Info("");
+    
+    return results;
+}
+
+std::vector<BenchmarkResult> RunFullSuite(IComputeBackend* backend) {
+    Logger& logger = Logger::GetInstance();
+    std::vector<BenchmarkResult> results;
+    
+    logger.Info("Full Suite: Large problem sizes with scaling analysis");
+    logger.Info("");
+    
+    // 1. Vector Add - Multiple sizes
+    logger.Info("=== Vector Addition Scaling ===");
+    for (size_t size : {1000000, 10000000, 50000000}) {
+        logger.Info("[Vector Add] " + std::to_string(size) + " elements");
+        try {
+            VectorAddBenchmark vecBench(size);
+            vecBench.SetIterations(100);
+            BenchmarkResult result = vecBench.Run(backend);
+            results.push_back(result);
+            logger.LogResult(result);
+        } catch (const std::exception& e) {
+            logger.Error("Failed: " + std::string(e.what()));
+        }
+    }
+    logger.Info("");
+    
+    // 2. Matrix Mul - Multiple sizes
+    logger.Info("=== Matrix Multiplication Scaling ===");
+    for (size_t size : {512, 1024, 2048}) {
+        logger.Info("[Matrix Mul] " + std::to_string(size) + "×" + std::to_string(size));
+        try {
+            MatrixMulBenchmark matBench(size);
+            matBench.SetIterations(100);
+            BenchmarkResult result = matBench.Run(backend);
+            results.push_back(result);
+            logger.LogResult(result);
+        } catch (const std::exception& e) {
+            logger.Error("Failed: " + std::string(e.what()));
+        }
+    }
+    logger.Info("");
+    
+    // 3. Convolution - Multiple resolutions
+    logger.Info("=== 2D Convolution Scaling ===");
+    std::vector<std::pair<size_t, size_t>> resolutions = {{640, 480}, {1920, 1080}, {3840, 2160}};
+    for (auto [width, height] : resolutions) {
+        logger.Info("[Convolution] " + std::to_string(width) + "×" + std::to_string(height));
+        try {
+            ConvolutionBenchmark convBench(width, height);
+            convBench.SetIterations(100);
+            BenchmarkResult result = convBench.Run(backend);
+            results.push_back(result);
+            logger.LogResult(result);
+        } catch (const std::exception& e) {
+            logger.Error("Failed: " + std::string(e.what()));
+        }
+    }
+    logger.Info("");
+    
+    // 4. Reduction - Multiple sizes
+    logger.Info("=== Parallel Reduction Scaling ===");
+    for (size_t size : {1000000, 10000000, 50000000}) {
+        logger.Info("[Reduction] " + std::to_string(size) + " elements");
+        try {
+            ReductionBenchmark redBench(size);
+            redBench.SetIterations(100);
+            BenchmarkResult result = redBench.Run(backend);
+            results.push_back(result);
+            logger.LogResult(result);
+        } catch (const std::exception& e) {
+            logger.Error("Failed: " + std::string(e.what()));
+        }
+    }
+    logger.Info("");
+    
+    return results;
+}
+
+void PrintSummary(const std::vector<BenchmarkResult>& results) {
+    Logger& logger = Logger::GetInstance();
+    
+    logger.Info("==========================================================");
+    logger.Info("                  BENCHMARK SUMMARY");
+    logger.Info("==========================================================");
+    logger.Info("");
+    
+    if (results.empty()) {
+        logger.Warning("No results to summarize");
+        return;
+    }
+    
+    // Group results by benchmark type
+    double totalVectorBandwidth = 0.0;
+    double totalMatrixGFLOPS = 0.0;
+    double totalConvolutionBandwidth = 0.0;
+    double totalReductionBandwidth = 0.0;
+    
+    int vectorCount = 0, matrixCount = 0, convolutionCount = 0, reductionCount = 0;
+    
+    for (const auto& result : results) {
+        if (result.benchmarkName.find("Vector") != std::string::npos) {
+            totalVectorBandwidth += result.effectiveBandwidthGBs;
+            vectorCount++;
+        } else if (result.benchmarkName.find("Matrix") != std::string::npos) {
+            totalMatrixGFLOPS += result.effectiveBandwidthGBs; // GFLOPS stored here
+            matrixCount++;
+        } else if (result.benchmarkName.find("Convolution") != std::string::npos) {
+            totalConvolutionBandwidth += result.effectiveBandwidthGBs;
+            convolutionCount++;
+        } else if (result.benchmarkName.find("Reduction") != std::string::npos) {
+            totalReductionBandwidth += result.effectiveBandwidthGBs;
+            reductionCount++;
         }
     }
     
-    // 3. Results would be saved here
-    std::cout << "\nResults saved to: " << args.outputFile << std::endl;
+    logger.Info("GPU: " + results[0].gpuName);
+    logger.Info("Backend: " + results[0].backendName);
+    logger.Info("");
     
-    return 0;
+    if (vectorCount > 0) {
+        logger.Info("Vector Addition:    " + std::to_string(totalVectorBandwidth / vectorCount) + " GB/s (avg)");
+    }
+    if (matrixCount > 0) {
+        logger.Info("Matrix Multiply:    " + std::to_string(totalMatrixGFLOPS / matrixCount) + " GFLOPS (avg)");
+    }
+    if (convolutionCount > 0) {
+        logger.Info("2D Convolution:     " + std::to_string(totalConvolutionBandwidth / convolutionCount) + " GB/s (avg)");
+    }
+    if (reductionCount > 0) {
+        logger.Info("Parallel Reduction: " + std::to_string(totalReductionBandwidth / reductionCount) + " GB/s (avg)");
+    }
+    
+    logger.Info("");
+    logger.Info("Total benchmarks run: " + std::to_string(results.size()));
+    logger.Info("Results exported to: benchmark_results.csv");
+    logger.Info("==========================================================");
 }
 
 /*******************************************************************************
- * FUNCTION: RunGUIMode()
+ * NEXT STEPS FOR COMPLETION:
  * 
- * Run application in GUI mode with interactive window.
+ * 1. **Backend Access:** Modify BenchmarkRunner to provide access to initialized
+ *    backends so they can be passed to benchmark wrapper classes.
  * 
- * GUI MODE FEATURES:
- *   - Real-time visualization of results
- *   - Interactive benchmark selection
- *   - Live performance graphs
- *   - Backend comparison charts
+ * 2. **Suite Implementation:** Complete RunQuickSuite, RunStandardSuite, and
+ *    RunFullSuite functions to execute benchmark wrapper classes.
  * 
- * WORKFLOW:
- *   1. Initialize OpenGL/GLFW window
- *   2. Create GUI (ImGui or custom)
- *   3. Initialize backends
- *   4. Main loop:
- *      - Handle user input
- *      - Run selected benchmarks
- *      - Update visualizations
- *      - Render frame
- *   5. Cleanup and exit
+ * 3. **Results Collection:** Collect BenchmarkResult objects from each benchmark
+ *    and pass to PrintSummary for analysis.
  * 
- * PARAMETERS:
- *   args: Parsed command-line arguments
- *   caps: Detected system capabilities
+ * 4. **Error Handling:** Add try-catch blocks for graceful error handling.
  * 
- * RETURN:
- *   0 on success, 1 on failure
- ******************************************************************************/
-int RunGUIMode(const CommandLineArgs& args, const SystemCapabilities& caps) {
-    std::cout << "GUI Mode implementation:" << std::endl;
-    std::cout << "  This would create an OpenGL window" << std::endl;
-    std::cout << "  with real-time benchmark visualization" << std::endl;
-    std::cout << "\n[NOTE] GUI mode is under development." << std::endl;
-    std::cout << "For now, please use CLI mode: --cli --all" << std::endl;
-    
-    // TODO: Implement full GUI mode with:
-    // - GLFW window creation
-    // - ImGui integration
-    // - OpenGL rendering
-    // - Real-time charts and graphs
-    
-    return 0;
-}
-
-/*******************************************************************************
- * END OF FILE: main.cpp
+ * 5. **Progress Display:** Add progress indicators during long-running benchmarks.
  * 
- * WHAT WE IMPLEMENTED:
- *   1. Application entry point with error handling
- *   2. Command-line argument parsing
- *   3. System capability discovery
- *   4. Mode selection (CLI vs GUI)
- *   5. Professional console output with banner
- * 
- * EXECUTION FLOW SUMMARY:
- *   User runs: GPU-Benchmark.exe --cli --all
- *     ↓
- *   main() parses arguments
- *     ↓
- *   Discovers system (GPU, CUDA, OpenCL, DirectCompute)
- *     ↓
- *   Checks at least one backend available
- *     ↓
- *   Runs CLI mode with all benchmarks
- *     ↓
- *   Exports results to CSV
- *     ↓
- *   Exits with success code
- * 
- * KEY FEATURES:
- *   - Graceful error handling (try-catch)
- *   - User-friendly messages
- *   - Flexible command-line interface
- *   - Professional output formatting
- *   - Clear documentation for interviews
- * 
- * WHAT TO IMPLEMENT NEXT:
- *   1. Backend implementations (CUDA, OpenCL, DirectCompute)
- *   2. Benchmark implementations (Vector Add, Matrix Mul, etc.)
- *   3. BenchmarkRunner to orchestrate execution
- *   4. Visualization with OpenGL
- *   5. GUI with ImGui
- * 
- * FOR INTERVIEWS:
- *   Explain:
- *     - Why error handling important (application never crashes)
- *     - Why runtime detection instead of compile-time (one .exe, all GPUs)
- *     - Why both CLI and GUI modes (flexibility for users and automation)
- *     - How command-line parsing works
- *     - Professional software engineering practices (logging, error messages)
+ * 6. **GUI Integration:** Once command-line version is complete, wrap in ImGui
+ *    for graphical interface.
  * 
  ******************************************************************************/

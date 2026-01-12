@@ -213,14 +213,8 @@ std::vector<GPUInfo> DeviceDiscovery::EnumerateGPUs() {
             gpuInfo.vendor = VendorIDToString(adapterDesc.VendorId);
             gpuInfo.isPrimaryGPU = (adapterIndex == 0);  // First adapter is usually primary
             
-            // Driver version (format: AAA.BB.CCC.DDDD)
-            LARGE_INTEGER driverVersion = adapterDesc.DriverVersion;
-            std::ostringstream driverStr;
-            driverStr << ((driverVersion.QuadPart >> 48) & 0xFFFF) << "."
-                      << ((driverVersion.QuadPart >> 32) & 0xFFFF) << "."
-                      << ((driverVersion.QuadPart >> 16) & 0xFFFF) << "."
-                      << (driverVersion.QuadPart & 0xFFFF);
-            gpuInfo.driverVersion = driverStr.str();
+            // Driver version not available in DXGI_ADAPTER_DESC (use registry or WMI for this)
+            gpuInfo.driverVersion = "Unknown";
             
             gpus.push_back(gpuInfo);
         }

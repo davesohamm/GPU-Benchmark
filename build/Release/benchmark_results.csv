@@ -1,0 +1,3 @@
+Timestamp,Backend,Benchmark,ProblemSize,ExecutionTimeMS,HostToDeviceMS,DeviceToHostMS,TotalTimeMS,BandwidthGBs,ThroughputGFLOPS,ResultCorrect,GPUName,DriverVersion
+2026-01-12 23:21:56,CUDA,VectorAdd,10000000,0.711599,0,0,0,168.634,0,true,,
+2026-01-12 23:21:56,CUDA,MatrixMultiplication,1048576,1.90406,0,0,0,1127.85,0,true,NVIDIA GeForce RTX 3050 Laptop GPU,

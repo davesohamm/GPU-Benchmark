@@ -1,0 +1,12 @@
+Y:/GPU-Benchmark/build/CMakeFiles/test_logger.dir
+Y:/GPU-Benchmark/build/CMakeFiles/test_cuda_simple.dir
+Y:/GPU-Benchmark/build/CMakeFiles/test_cuda_backend.dir
+Y:/GPU-Benchmark/build/CMakeFiles/test_matmul.dir
+Y:/GPU-Benchmark/build/CMakeFiles/test_convolution.dir
+Y:/GPU-Benchmark/build/CMakeFiles/test_reduction.dir
+Y:/GPU-Benchmark/build/CMakeFiles/test_opencl_backend.dir
+Y:/GPU-Benchmark/build/CMakeFiles/test_directcompute_backend.dir
+Y:/GPU-Benchmark/build/CMakeFiles/GPU-Benchmark.dir
+Y:/GPU-Benchmark/build/CMakeFiles/GPU-Benchmark-GUI.dir
+Y:/GPU-Benchmark/build/CMakeFiles/ALL_BUILD.dir
+Y:/GPU-Benchmark/build/CMakeFiles/ZERO_CHECK.dir

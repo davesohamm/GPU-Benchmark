@@ -1,0 +1,2 @@
+Timestamp,Backend,Benchmark,ProblemSize,ExecutionTimeMS,HostToDeviceMS,DeviceToHostMS,TotalTimeMS,BandwidthGBs,ThroughputGFLOPS,ResultCorrect,GPUName,DriverVersion
+2026-01-12 17:31:20,CUDA,VectorAdd,1000000,0.234,0,0,0,51.3,0,true,RTX 3050,

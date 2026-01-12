@@ -1,0 +1,10 @@
+^Y:\GPU-BENCHMARK\BUILD\CMAKEFILES\E832289E531CFA9D0B3341BF756AB97F\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SY:/GPU-Benchmark -BY:/GPU-Benchmark/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file Y:/GPU-Benchmark/build/GPUBenchmark.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

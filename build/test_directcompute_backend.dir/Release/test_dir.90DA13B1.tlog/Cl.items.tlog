@@ -1,0 +1,8 @@
+Y:\GPU-Benchmark\test_directcompute_backend.cpp;Y:\GPU-Benchmark\build\test_directcompute_backend.dir\Release\test_directcompute_backend.obj
+Y:\GPU-Benchmark\src\backends\directcompute\DirectComputeBackend.cpp;Y:\GPU-Benchmark\build\test_directcompute_backend.dir\Release\DirectComputeBackend.obj
+Y:\GPU-Benchmark\src\core\Timer.cpp;Y:\GPU-Benchmark\build\test_directcompute_backend.dir\Release\Timer.obj
+Y:\GPU-Benchmark\src\core\Logger.cpp;Y:\GPU-Benchmark\build\test_directcompute_backend.dir\Release\Logger.obj
+Y:\GPU-Benchmark\src\core\BenchmarkRunner.cpp;Y:\GPU-Benchmark\build\test_directcompute_backend.dir\Release\BenchmarkRunner.obj
+Y:\GPU-Benchmark\src\core\DeviceDiscovery.cpp;Y:\GPU-Benchmark\build\test_directcompute_backend.dir\Release\DeviceDiscovery.obj
+Y:\GPU-Benchmark\src\backends\cuda\CUDABackend.cpp;Y:\GPU-Benchmark\build\test_directcompute_backend.dir\Release\CUDABackend.obj
+Y:\GPU-Benchmark\src\backends\opencl\OpenCLBackend.cpp;Y:\GPU-Benchmark\build\test_directcompute_backend.dir\Release\OpenCLBackend.obj

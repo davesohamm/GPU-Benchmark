@@ -1,326 +1,289 @@
-################################################################################
-# FILE: CMakeLists.txt
-# 
-# PURPOSE:
-#   CMake build configuration for GPU Compute Benchmark Tool.
-#   
-#   CMake is a cross-platform build system generator. It generates:
-#     - Visual Studio solutions (.sln) on Windows
-#     - Makefiles on Linux
-#     - Xcode projects on macOS
-#   
-#   We use CMake because it handles complex dependencies (CUDA, OpenCL, DirectX)
-#   better than manual Visual Studio project configuration.
-# 
-# HOW TO BUILD:
-#   1. Install CMake (cmake.org)
-#   2. Open PowerShell in project directory
-#   3. mkdir build
-#   4. cd build
-#   5. cmake .. -G "Visual Studio 17 2022" -A x64
-#   6. cmake --build . --config Release
-#   7. .\Release\GPU-Benchmark.exe
-# 
-# REQUIREMENTS:
-#   - CMake 3.18+ (for CUDA support)
-#   - Visual Studio 2019 or 2022
-#   - CUDA Toolkit 11.0+ (optional, for CUDA backend)
-#   - Windows SDK (for DirectCompute)
-# 
-# AUTHOR: Soham
-# DATE: January 2026
-# SYSTEM: Windows 11, Visual Studio 2022
-# 
-################################################################################
+cmake_minimum_required(VERSION 3.18)
 
-# Minimum CMake version
-# 3.18 required for CUDA language support
-cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+project(GPUBenchmark CUDA CXX)
 
-# Project name and version
-# LANGUAGES: CXX (C++), CUDA (NVIDIA CUDA)
-project(GPU-Benchmark 
-    VERSION 1.0.0
-    DESCRIPTION "GPU Compute Benchmark and Visualization Tool"
-    LANGUAGES CXX CUDA
-)
-
-# C++ Standard: C++17
-# We use C++17 for:
-#   - std::filesystem (file I/O)
-#   - std::optional (optional values)
-#   - Structured bindings
+# C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# CUDA Standard: C++17 (match C++ standard)
+# CUDA standard
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
-################################################################################
-# CONFIGURATION OPTIONS
-# 
-# These can be set from command line:
-#   cmake .. -DUSE_CUDA=ON -DUSE_OPENCL=OFF
-################################################################################
+# CUDA architecture for RTX 3050 (Ampere, compute capability 8.6)
+set(CMAKE_CUDA_ARCHITECTURES 86)
 
-# Enable/disable backends
-option(USE_CUDA "Build with CUDA support" ON)
-option(USE_OPENCL "Build with OpenCL support" ON)
-option(USE_DIRECTCOMPUTE "Build with DirectCompute support" ON)
+# Find OpenCL
+find_package(OpenCL)
 
-# Enable/disable GUI
-option(BUILD_GUI "Build GUI (requires OpenGL/GLFW)" ON)
+# Define preprocessor macros for enabled backends
+add_compile_definitions(USE_CUDA)
 
-# Build type
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+if(OpenCL_FOUND)
+    add_compile_definitions(USE_OPENCL)
+    message(STATUS "OpenCL Found: ${OpenCL_VERSION_STRING}")
+    message(STATUS "OpenCL Include: ${OpenCL_INCLUDE_DIRS}")
+    message(STATUS "OpenCL Libraries: ${OpenCL_LIBRARIES}")
+else()
+    message(WARNING "OpenCL not found - OpenCL backend will not be available")
 endif()
 
-################################################################################
-# FIND REQUIRED PACKAGES
-################################################################################
-
-# Windows SDK (required for DirectCompute)
-# This is usually automatically found on Windows
+# DirectCompute is always available on Windows (via DirectX 11)
 if(WIN32)
-    message(STATUS "Windows platform detected")
+    add_compile_definitions(USE_DIRECTCOMPUTE)
+    message(STATUS "DirectCompute: Enabled (Windows platform)")
 endif()
 
-# CUDA Toolkit (optional)
-if(USE_CUDA)
-    # FindCUDA module looks for CUDA installation
-    # Sets variables: CUDA_FOUND, CUDA_INCLUDE_DIRS, CUDA_LIBRARIES
-    find_package(CUDA QUIET)
-    
-    if(CUDA_FOUND)
-        message(STATUS "CUDA found: ${CUDA_VERSION}")
-        message(STATUS "CUDA include: ${CUDA_INCLUDE_DIRS}")
-        
-        # Set CUDA compute capabilities
-        # RTX 3050 = Ampere = sm_86
-        # This tells CUDA compiler to generate code for these architectures
-        set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} 
-            -gencode arch=compute_86,code=sm_86  # Ampere (RTX 30xx, RTX 40xx)
-            -gencode arch=compute_75,code=sm_75  # Turing (RTX 20xx, GTX 16xx)
-            -gencode arch=compute_61,code=sm_61  # Pascal (GTX 10xx)
-        )
-        
-        # Enable fast math for better performance (trade accuracy for speed)
-        set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -use_fast_math)
-        
-        add_definitions(-DUSE_CUDA)
-    else()
-        message(WARNING "CUDA not found - CUDA backend will be disabled")
-        set(USE_CUDA OFF)
-    endif()
-endif()
-
-# OpenCL (optional)
-if(USE_OPENCL)
-    # FindOpenCL module (built into CMake)
-    find_package(OpenCL QUIET)
-    
-    if(OpenCL_FOUND)
-        message(STATUS "OpenCL found: ${OpenCL_VERSION_STRING}")
-        add_definitions(-DUSE_OPENCL)
-    else()
-        message(WARNING "OpenCL not found - OpenCL backend will be disabled")
-        set(USE_OPENCL OFF)
-    endif()
-endif()
-
-# DirectX (DirectCompute) - Windows only
-if(USE_DIRECTCOMPUTE AND WIN32)
-    # DirectX is part of Windows SDK, no need to find it
-    # We'll link with d3d11.lib and d3dcompiler.lib
-    add_definitions(-DUSE_DIRECTCOMPUTE)
-    message(STATUS "DirectCompute enabled (Windows platform)")
-endif()
-
-################################################################################
-# SOURCE FILES
-################################################################################
-
-# Core framework sources
+# Core sources
 set(CORE_SOURCES
     src/core/Timer.cpp
+    src/core/Logger.cpp
+    src/core/BenchmarkRunner.cpp
     src/core/DeviceDiscovery.cpp
 )
 
-set(CORE_HEADERS
-    src/core/IComputeBackend.h
-    src/core/Timer.h
-    src/core/DeviceDiscovery.h
+# CUDA backend sources
+set(CUDA_SOURCES
+    src/backends/cuda/CUDABackend.cpp
 )
 
-# CUDA backend sources (only if CUDA enabled)
-if(USE_CUDA)
-    set(CUDA_BACKEND_SOURCES
-        # These would be .cu files compiled by NVCC
-        # Placeholder for now
+# OpenCL backend sources (conditionally included)
+if(OpenCL_FOUND)
+    set(OPENCL_SOURCES
+        src/backends/opencl/OpenCLBackend.cpp
     )
 endif()
 
-# Main application source
-set(APP_SOURCES
-    src/main.cpp
-)
-
-################################################################################
-# CREATE EXECUTABLE
-################################################################################
-
-# Main executable target
-add_executable(GPU-Benchmark
-    ${APP_SOURCES}
-    ${CORE_SOURCES}
-    ${CORE_HEADERS}
-)
-
-# Include directories
-target_include_directories(GPU-Benchmark PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/include
-)
-
-# Link libraries
-target_link_libraries(GPU-Benchmark PRIVATE
-    # Windows libraries (always needed)
-    # These provide: DXGI, Direct3D 11, registry access, etc.
-)
-
+# DirectCompute backend sources (Windows only)
 if(WIN32)
-    target_link_libraries(GPU-Benchmark PRIVATE
-        dxgi.lib        # DirectX Graphics Infrastructure (GPU enumeration)
-        d3d11.lib       # Direct3D 11 (DirectCompute)
-        d3dcompiler.lib # HLSL shader compiler
+    set(DIRECTCOMPUTE_SOURCES
+        src/backends/directcompute/DirectComputeBackend.cpp
     )
 endif()
 
-# CUDA libraries (if enabled)
-if(USE_CUDA AND CUDA_FOUND)
-    target_include_directories(GPU-Benchmark PRIVATE ${CUDA_INCLUDE_DIRS})
-    target_link_libraries(GPU-Benchmark PRIVATE ${CUDA_LIBRARIES})
-endif()
-
-# OpenCL libraries (if enabled)
-if(USE_OPENCL AND OpenCL_FOUND)
-    target_link_libraries(GPU-Benchmark PRIVATE OpenCL::OpenCL)
-endif()
-
-################################################################################
-# COMPILER FLAGS
-################################################################################
-
-# Windows-specific flags
-if(MSVC)
-    # Enable multi-processor compilation (faster builds)
-    target_compile_options(GPU-Benchmark PRIVATE /MP)
-    
-    # Warning level 4 (high)
-    target_compile_options(GPU-Benchmark PRIVATE /W4)
-    
-    # Treat warnings as errors (enforce clean code)
-    # target_compile_options(GPU-Benchmark PRIVATE /WX)
-    
-    # Optimization flags for Release build
-    if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        target_compile_options(GPU-Benchmark PRIVATE /O2)  # Maximize speed
-        target_compile_options(GPU-Benchmark PRIVATE /Oi)  # Enable intrinsics
-    endif()
-endif()
-
-################################################################################
-# POST-BUILD STEPS
-################################################################################
-
-# Create results directory
-add_custom_command(TARGET GPU-Benchmark POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory 
-    ${CMAKE_BINARY_DIR}/results
-    COMMENT "Creating results directory"
+# Benchmark wrapper classes
+set(BENCHMARK_SOURCES
+    src/benchmarks/VectorAddBenchmark.cpp
+    src/benchmarks/MatrixMulBenchmark.cpp
+    src/benchmarks/ConvolutionBenchmark.cpp
+    src/benchmarks/ReductionBenchmark.cpp
 )
 
-# Copy shaders to build directory (if DirectCompute enabled)
-if(USE_DIRECTCOMPUTE)
-    # This would copy .hlsl files
-    # Placeholder for now
-endif()
-
-################################################################################
-# INSTALLATION (optional)
-################################################################################
-
-# Install executable
-install(TARGETS GPU-Benchmark
-    RUNTIME DESTINATION bin
+# CUDA kernel sources
+set(CUDA_KERNELS
+    src/backends/cuda/kernels/vector_add.cu
+    src/backends/cuda/kernels/matrix_mul.cu
+    src/backends/cuda/kernels/convolution.cu
+    src/backends/cuda/kernels/reduction.cu
 )
 
-# Install documentation
-install(FILES
-    README.md
-    BUILD_GUIDE.md
-    ARCHITECTURE.md
-    RESULTS_INTERPRETATION.md
-    DESTINATION docs
+# Test 1: Logger test (C++ only, no CUDA)
+# Only needs Logger and Timer, not the full framework
+add_executable(test_logger 
+    test_logger.cpp 
+    src/core/Timer.cpp
+    src/core/Logger.cpp
+)
+target_include_directories(test_logger PRIVATE ${CMAKE_SOURCE_DIR})
+
+# Test 2: Simple CUDA test
+add_executable(test_cuda_simple test_cuda_simple.cu)
+set_target_properties(test_cuda_simple PROPERTIES 
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_ARCHITECTURES 86
 )
 
-################################################################################
-# PRINT CONFIGURATION SUMMARY
-################################################################################
+# Test 3: Full CUDA backend test
+add_executable(test_cuda_backend test_cuda_backend.cu ${CUDA_SOURCES} ${CORE_SOURCES})
+set_target_properties(test_cuda_backend PROPERTIES 
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_ARCHITECTURES 86
+)
+target_include_directories(test_cuda_backend PRIVATE ${CMAKE_SOURCE_DIR})
+
+# Test 4: Matrix multiplication kernel test
+add_executable(test_matmul 
+    test_matmul.cu 
+    src/backends/cuda/kernels/matrix_mul.cu
+    ${CORE_SOURCES}
+    ${CUDA_SOURCES}
+)
+set_target_properties(test_matmul PROPERTIES 
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_ARCHITECTURES 86
+)
+target_include_directories(test_matmul PRIVATE ${CMAKE_SOURCE_DIR})
+
+# Test 5: Convolution kernel test
+add_executable(test_convolution
+    test_convolution.cu
+    src/backends/cuda/kernels/convolution.cu
+    ${CORE_SOURCES}
+    ${CUDA_SOURCES}
+)
+set_target_properties(test_convolution PROPERTIES 
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_ARCHITECTURES 86
+)
+target_include_directories(test_convolution PRIVATE ${CMAKE_SOURCE_DIR})
+
+# Test 6: Reduction kernel test
+add_executable(test_reduction
+    test_reduction.cu
+    src/backends/cuda/kernels/reduction.cu
+    ${CORE_SOURCES}
+    ${CUDA_SOURCES}
+)
+set_target_properties(test_reduction PROPERTIES 
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_ARCHITECTURES 86
+)
+target_include_directories(test_reduction PRIVATE ${CMAKE_SOURCE_DIR})
 
 message(STATUS "")
-message(STATUS "==============================================")
-message(STATUS "GPU Benchmark Tool - Build Configuration")
-message(STATUS "==============================================")
-message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "C++ standard: C++${CMAKE_CXX_STANDARD}")
+message(STATUS "=============================================")
+message(STATUS "  GPU Benchmark - CMake Configuration")
+message(STATUS "=============================================")
+message(STATUS "C++ Compiler:    ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "CUDA Compiler:   ${CMAKE_CUDA_COMPILER_VERSION}")
+message(STATUS "CUDA Arch:       ${CMAKE_CUDA_ARCHITECTURES}")
+message(STATUS "Build Type:      ${CMAKE_BUILD_TYPE}")
 message(STATUS "")
-message(STATUS "Backends:")
-message(STATUS "  CUDA:          ${USE_CUDA}")
-if(USE_CUDA AND CUDA_FOUND)
-    message(STATUS "    Version:     ${CUDA_VERSION}")
+# Test 7: OpenCL backend test (if OpenCL available)
+if(OpenCL_FOUND)
+    # Create as CUDA project to link CUDA runtime properly
+    add_executable(test_opencl_backend
+        test_opencl_backend.cpp
+        test_opencl_stub.cu
+        ${OPENCL_SOURCES}
+        ${CORE_SOURCES}
+        ${CUDA_SOURCES}
+    )
+    set_target_properties(test_opencl_backend PROPERTIES 
+        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_ARCHITECTURES 86
+    )
+    target_include_directories(test_opencl_backend PRIVATE 
+        ${CMAKE_SOURCE_DIR}
+        ${OpenCL_INCLUDE_DIRS}
+    )
+    target_link_libraries(test_opencl_backend 
+        ${OpenCL_LIBRARIES}
+    )
 endif()
-message(STATUS "  OpenCL:        ${USE_OPENCL}")
-if(USE_OPENCL AND OpenCL_FOUND)
-    message(STATUS "    Version:     ${OpenCL_VERSION_STRING}")
-endif()
-message(STATUS "  DirectCompute: ${USE_DIRECTCOMPUTE}")
-message(STATUS "")
-message(STATUS "GUI:             ${BUILD_GUI}")
-message(STATUS "==============================================")
-message(STATUS "")
 
-################################################################################
-# END OF FILE: CMakeLists.txt
-# 
-# USAGE SUMMARY:
-#   mkdir build
-#   cd build
-#   cmake .. -G "Visual Studio 17 2022" -A x64
-#   cmake --build . --config Release
-#   .\Release\GPU-Benchmark.exe
-# 
-# WHAT THIS FILE DOES:
-#   1. Configures project for CMake
-#   2. Finds required libraries (CUDA, OpenCL, DirectX)
-#   3. Sets up include directories and link libraries
-#   4. Defines compiler flags
-#   5. Creates build targets
-# 
-# CMAKE BENEFITS:
-#   - Handles complex dependencies automatically
-#   - Generates Visual Studio solutions
-#   - Cross-platform (could compile on Linux with minor changes)
-#   - Tracks file dependencies (incremental builds)
-# 
-# FOR INTERVIEWS:
-#   Explain:
-#     - Why use build systems (vs manual compilation)
-#     - How CMake finds libraries (FindCUDA, FindOpenCL)
-#     - Conditional compilation (USE_CUDA, USE_OPENCL flags)
-#     - Compiler optimization flags (-O2, /Oi)
-#     - Linking libraries (static vs dynamic)
-# 
-################################################################################
+# Test 8: DirectCompute backend test (Windows only)
+if(WIN32)
+    add_executable(test_directcompute_backend
+        test_directcompute_backend.cpp
+        test_opencl_stub.cu
+        ${DIRECTCOMPUTE_SOURCES}
+        ${CORE_SOURCES}
+        ${CUDA_SOURCES}
+        ${OPENCL_SOURCES}
+    )
+    set_target_properties(test_directcompute_backend PROPERTIES 
+        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_ARCHITECTURES 86
+    )
+    target_include_directories(test_directcompute_backend PRIVATE 
+        ${CMAKE_SOURCE_DIR}
+        ${OpenCL_INCLUDE_DIRS}
+    )
+    target_link_libraries(test_directcompute_backend 
+        ${OpenCL_LIBRARIES}
+    )
+endif()
+
+# Check for ImGui
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/external/imgui")
+if(EXISTS "${IMGUI_DIR}/imgui.h")
+    message(STATUS "ImGui Found: ${IMGUI_DIR}")
+    set(IMGUI_FOUND TRUE)
+    
+    # ImGui sources
+    set(IMGUI_SOURCES
+        ${IMGUI_DIR}/imgui.cpp
+        ${IMGUI_DIR}/imgui_demo.cpp
+        ${IMGUI_DIR}/imgui_draw.cpp
+        ${IMGUI_DIR}/imgui_tables.cpp
+        ${IMGUI_DIR}/imgui_widgets.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_dx11.cpp
+    )
+else()
+    message(WARNING "ImGui not found - GUI application will not be built. Run DOWNLOAD_IMGUI.cmd first.")
+    set(IMGUI_FOUND FALSE)
+endif()
+
+# Main application (CLI)
+add_executable(GPU-Benchmark 
+    src/main.cpp
+    src/cuda_stub.cu
+    ${CORE_SOURCES}
+    ${CUDA_SOURCES}
+    ${CUDA_KERNELS}
+    ${BENCHMARK_SOURCES}
+    ${OPENCL_SOURCES}
+    ${DIRECTCOMPUTE_SOURCES}
+)
+set_target_properties(GPU-Benchmark PROPERTIES 
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_ARCHITECTURES 86
+)
+target_include_directories(GPU-Benchmark PRIVATE 
+    ${CMAKE_SOURCE_DIR}
+    ${OpenCL_INCLUDE_DIRS}
+)
+target_link_libraries(GPU-Benchmark ${OpenCL_LIBRARIES})
+
+# GUI Application
+if(IMGUI_FOUND AND WIN32)
+    add_executable(GPU-Benchmark-GUI WIN32
+        src/gui/main_gui.cpp
+        test_opencl_stub.cu
+        ${IMGUI_SOURCES}
+        ${CORE_SOURCES}
+        ${CUDA_SOURCES}
+        ${CUDA_KERNELS}
+        ${BENCHMARK_SOURCES}
+        ${OPENCL_SOURCES}
+        ${DIRECTCOMPUTE_SOURCES}
+    )
+    set_target_properties(GPU-Benchmark-GUI PROPERTIES 
+        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_ARCHITECTURES 86
+    )
+    target_include_directories(GPU-Benchmark-GUI PRIVATE 
+        ${CMAKE_SOURCE_DIR}
+        ${IMGUI_DIR}
+        ${IMGUI_DIR}/backends
+        ${OpenCL_INCLUDE_DIRS}
+    )
+    target_link_libraries(GPU-Benchmark-GUI 
+        ${OpenCL_LIBRARIES}
+        d3d11
+        dxgi
+    )
+    message(STATUS "GUI application target added: GPU-Benchmark-GUI")
+endif()
+
+message(STATUS "Targets:")
+message(STATUS "  - GPU-Benchmark        (Main CLI application)")
+if(IMGUI_FOUND AND WIN32)
+    message(STATUS "  - GPU-Benchmark-GUI    (GUI application) ⭐ NEW!")
+endif()
+message(STATUS "  - test_logger          (Logger test)")
+message(STATUS "  - test_cuda_simple     (Simple CUDA)")
+message(STATUS "  - test_cuda_backend    (Full backend)")
+message(STATUS "  - test_matmul          (Matrix multiplication)")
+message(STATUS "  - test_convolution     (2D convolution)")
+message(STATUS "  - test_reduction       (Parallel reduction)")
+if(OpenCL_FOUND)
+    message(STATUS "  - test_opencl_backend  (OpenCL backend)")
+endif()
+if(WIN32)
+    message(STATUS "  - test_directcompute_backend (DirectCompute backend)")
+endif()
+message(STATUS "=============================================")
+message(STATUS "")
