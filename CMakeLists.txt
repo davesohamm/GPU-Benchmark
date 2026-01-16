@@ -240,6 +240,7 @@ target_link_libraries(GPU-Benchmark ${OpenCL_LIBRARIES})
 if(IMGUI_FOUND AND WIN32)
     add_executable(GPU-Benchmark-GUI WIN32
         src/gui/main_gui_fixed.cpp
+        src/gui/app.rc
         test_opencl_stub.cu
         ${IMGUI_SOURCES}
         ${CORE_SOURCES}

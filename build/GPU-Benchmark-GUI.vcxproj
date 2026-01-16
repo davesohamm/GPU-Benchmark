@@ -407,6 +407,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Y:\GPU-Benchmark\src\gui\main_gui_fixed.cpp" />
+    <ResourceCompile Include="Y:\GPU-Benchmark\src\gui\app.rc" />
     <CudaCompile Include="..\test_opencl_stub.cu" />
     <ClCompile Include="Y:\GPU-Benchmark\external\imgui\imgui.cpp" />
     <ClCompile Include="Y:\GPU-Benchmark\external\imgui\imgui_demo.cpp" />

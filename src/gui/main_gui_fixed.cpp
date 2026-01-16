@@ -1,16 +1,16 @@
 /*******************************************************************************
  * @file    main_gui_fixed.cpp
- * @brief   GPU Benchmark Suite - WORKING GUI with All 3 Backends
- * 
- * @details Beautiful desktop application featuring:
+ * @brief   GPU Benchmark Suite - Multi-API GPU Performance Testing
+ *
+ * @details Professional GPU benchmarking application featuring:
  *          - ImGui interface with DirectX 11 rendering
- *          - ALL 3 backends working (CUDA, OpenCL, DirectCompute)
- *          - Real-time performance graphs
- *          - Live benchmark execution and visualization
+ *          - Multi-API support (CUDA, OpenCL, DirectCompute)
+ *          - Real-time performance graphs and analysis
+ *          - Comprehensive benchmark execution and visualization
  * 
  * @author  Soham Dave (https://github.com/davesohamm)
  * @date    2026-01-09
- * @version 2.0.0 - FULLY WORKING!
+ * @version 1.0.0
  ********************************************************************************/
 
 // C++ headers
@@ -418,7 +418,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 //==============================================================================
-// BENCHMARK EXECUTION (WORKING VERSION!)
+// BENCHMARK EXECUTION
 //==============================================================================
 
 BenchmarkResult RunVectorAddCUDA(CUDABackend* backend, size_t numElements, int iterations) {
@@ -1221,7 +1221,7 @@ void RenderUI() {
     
     // Enhanced Header with better styling
     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-    ImGui::TextColored(ImVec4(0.3f, 0.9f, 1.0f, 1.0f), "[GPU BENCHMARK SUITE v4.0]");
+    ImGui::TextColored(ImVec4(0.3f, 0.9f, 1.0f, 1.0f), "GPU BENCHMARK SUITE v1.0");
     ImGui::PopFont();
     ImGui::SameLine();
     ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "| Comprehensive Multi-API GPU Testing");
@@ -1965,11 +1965,11 @@ void RenderUI() {
     // Enhanced About Dialog
     if (g_App.showAbout) {
         ImGui::SetNextWindowSize(ImVec2(680, 580), ImGuiCond_FirstUseEver);
-        ImGui::Begin("About GPU Benchmark Suite v4.0", &g_App.showAbout);
+        ImGui::Begin("About GPU Benchmark Suite", &g_App.showAbout);
 
         // Header
         ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-        ImGui::TextColored(ImVec4(0.3f, 0.9f, 1.0f, 1.0f), "GPU BENCHMARK SUITE v4.0");
+        ImGui::TextColored(ImVec4(0.3f, 0.9f, 1.0f, 1.0f), "GPU BENCHMARK SUITE v1.0");
         ImGui::PopFont();
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Comprehensive Multi-API GPU Performance Testing Tool");
         ImGui::Separator();
@@ -2036,8 +2036,8 @@ void RenderUI() {
         if (ImGui::IsItemHovered()) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
         }
-        ImGui::Text("Version: 4.0.0 | Built: 2026-01-09");
-        ImGui::Text("Platform: Windows 11 | APIs: CUDA 12.x, OpenCL 3.0, DirectX 11");
+        ImGui::Text("Version: 1.0.0 | Released: January 2026");
+        ImGui::Text("Platform: Windows | APIs: CUDA, OpenCL, DirectCompute");
         
         ImGui::Spacing();
         ImGui::Separator();
@@ -2074,11 +2074,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     freopen_s(&dummy, "NUL", "w", stderr);
     
     // Create window
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"GPUBenchmark", nullptr };
+    HINSTANCE hInst = GetModuleHandle(nullptr);
+    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, hInst, nullptr, nullptr, nullptr, nullptr, L"GPUBenchmark", nullptr };
     ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"GPU Benchmark Suite v2.0 - All Backends Working!",
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"GPU Benchmark Suite v1.0",
                                 WS_OVERLAPPEDWINDOW, 100, 100, 1000, 700, nullptr, nullptr, wc.hInstance, nullptr);
     g_App.hwnd = hwnd;
+
+    // Load and set application icon for taskbar and title bar
+    HICON hIcon = (HICON)LoadImage(hInst, MAKEINTRESOURCE(101), IMAGE_ICON, 
+                                    GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0);
+    HICON hIconSmall = (HICON)LoadImage(hInst, MAKEINTRESOURCE(101), IMAGE_ICON,
+                                         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
+    
+    if (hIcon) {
+        SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+    }
+    if (hIconSmall) {
+        SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+    }
     
     // Initialize D3D
     if (!CreateDeviceD3D(hwnd)) {
