@@ -15,9 +15,9 @@
 
 **[Getting Started](#-getting-started)** •
 **[Documentation](#-documentation)** •
-**[Download](#-download)** •
+**[Download](https://drive.google.com/uc?export=download&id=1RjfhDuOD_5vZoFvXFxrNM0qv1T1VoyOK)** •
 **[Features](#-features)** •
-**[Architecture](#-architecture)** •
+**[Architecture](https://github.com/davesohamm/GPU-Benchmark/blob/main/docs/ARCHITECTURE.md)** •
 **[Contributing](#-contributing)**
 
 ---
