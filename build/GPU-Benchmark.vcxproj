@@ -406,7 +406,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Y:\GPU-Benchmark\src\main.cpp" />
+    <ClCompile Include="Y:\GPU-Benchmark\src\main_working.cpp" />
     <CudaCompile Include="..\src\cuda_stub.cu" />
     <ClCompile Include="Y:\GPU-Benchmark\src\core\Timer.cpp" />
     <ClCompile Include="Y:\GPU-Benchmark\src\core\Logger.cpp" />
@@ -417,10 +417,6 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <CudaCompile Include="..\src\backends\cuda\kernels\matrix_mul.cu" />
     <CudaCompile Include="..\src\backends\cuda\kernels\convolution.cu" />
     <CudaCompile Include="..\src\backends\cuda\kernels\reduction.cu" />
-    <ClCompile Include="Y:\GPU-Benchmark\src\benchmarks\VectorAddBenchmark.cpp" />
-    <ClCompile Include="Y:\GPU-Benchmark\src\benchmarks\MatrixMulBenchmark.cpp" />
-    <ClCompile Include="Y:\GPU-Benchmark\src\benchmarks\ConvolutionBenchmark.cpp" />
-    <ClCompile Include="Y:\GPU-Benchmark\src\benchmarks\ReductionBenchmark.cpp" />
     <ClCompile Include="Y:\GPU-Benchmark\src\backends\opencl\OpenCLBackend.cpp" />
     <ClCompile Include="Y:\GPU-Benchmark\src\backends\directcompute\DirectComputeBackend.cpp" />
   </ItemGroup>

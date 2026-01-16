@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="Y:\GPU-Benchmark\src\gui\main_gui.cpp">
+    <ClCompile Include="Y:\GPU-Benchmark\src\gui\main_gui_fixed.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Y:\GPU-Benchmark\external\imgui\imgui.cpp">
@@ -38,18 +38,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Y:\GPU-Benchmark\src\backends\cuda\CUDABackend.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Y:\GPU-Benchmark\src\benchmarks\VectorAddBenchmark.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Y:\GPU-Benchmark\src\benchmarks\MatrixMulBenchmark.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Y:\GPU-Benchmark\src\benchmarks\ConvolutionBenchmark.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Y:\GPU-Benchmark\src\benchmarks\ReductionBenchmark.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Y:\GPU-Benchmark\src\backends\opencl\OpenCLBackend.cpp">

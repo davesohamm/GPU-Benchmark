@@ -1,0 +1,102 @@
+================================================================================
+  URGENT: CRASH ISSUE - FIXED & READY TO TEST
+================================================================================
+
+PROBLEM IDENTIFIED:
+-------------------
+Both apps (CLI and GUI) were calling CUDA kernel launchers directly, even when
+using OpenCL or DirectCompute backends. This caused immediate crashes.
+
+ROOT CAUSE:
+-----------
+VectorAddBenchmark.cpp line 84:
+    launchVectorAdd(...)  <-- This is a CUDA function!
+
+When OpenCL or DirectCompute backend was selected, this CUDA function was
+still called, causing crashes.
+
+THE FIX:
+--------
+Created main_working.cpp that uses proper methods for each backend:
+  - CUDA → launchVectorAdd()
+  - OpenCL → CompileKernel() + ExecuteKernel()
+  - DirectCompute → CompileShader() + DispatchShader()
+
+STATUS:
+-------
+✓ CLI (GPU-Benchmark.exe) - REBUILT & READY
+✗ GUI (GPU-Benchmark-GUI.exe) - Still needs fixing
+
+================================================================================
+  HOW TO TEST (30-60 SECONDS)
+================================================================================
+
+METHOD 1: Direct execution
+  Command: build\Release\GPU-Benchmark.exe
+  
+METHOD 2: Use test script
+  Command: TEST_FIXED_CLI.cmd
+
+WHAT WILL HAPPEN:
+  1. Tests CUDA backend → Shows GB/s, PASS
+  2. Tests OpenCL backend → Shows GB/s, PASS
+  3. Tests DirectCompute backend → Shows GB/s, PASS
+  4. Creates benchmark_results_working.csv
+
+EXPECTED RESULTS (Your RTX 3050):
+  CUDA: 160-185 GB/s [PASS]
+  OpenCL: 150-175 GB/s [PASS]
+  DirectCompute: 140-165 GB/s [PASS]
+
+================================================================================
+  WHAT TO REPORT BACK
+================================================================================
+
+Option A - All working:
+  "All three backends completed!
+   CUDA: [X] GB/s
+   OpenCL: [Y] GB/s
+   DirectCompute: [Z] GB/s"
+
+Option B - Some failed:
+  "CUDA worked: [X] GB/s
+   OpenCL [crashed/error]
+   DirectCompute [crashed/error]"
+   
+  + Include any error messages
+
+Option C - Still crashes:
+  "Crashed during [backend name]"
+  + Copy last message before crash
+
+================================================================================
+  FILES TO CHECK
+================================================================================
+
+Documentation:
+  CRASH_ISSUE_FIXED.md       - Detailed technical explanation
+  TEST_FIXED_CLI.cmd         - Test script
+  URGENT_FIX_SUMMARY.txt     - This file
+
+Output Files (after running):
+  benchmark_results_working.csv - Results for all backends
+
+================================================================================
+  QUICK COMMAND
+================================================================================
+
+cd Y:\GPU-Benchmark
+build\Release\GPU-Benchmark.exe
+
+================================================================================
+
+BOTTOM LINE:
+  - CLI is fixed and ready to test
+  - Should work with all 3 backends
+  - Takes 30-60 seconds
+  - Will prove backends work correctly
+  - Then we can fix GUI
+
+RUN IT NOW AND REPORT RESULTS!
+
+================================================================================

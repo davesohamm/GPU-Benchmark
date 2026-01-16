@@ -1,0 +1,5 @@
+Benchmark,Backend,Time_ms,Bandwidth_GBs,GFLOPS,ProblemSize,Status
+VectorAdd,OpenCL,3.42825,175.017,0,50000000,PASS
+MatrixMul,OpenCL,4.73024,2.6601,453.991,1048576,PASS
+Convolution,OpenCL,0,0,0,1048576,FAIL
+Reduction,OpenCL,2.64896,48.3209,12.0802,32000000,PASS

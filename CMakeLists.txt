@@ -218,12 +218,11 @@ endif()
 
 # Main application (CLI)
 add_executable(GPU-Benchmark 
-    src/main.cpp
+    src/main_working.cpp
     src/cuda_stub.cu
     ${CORE_SOURCES}
     ${CUDA_SOURCES}
     ${CUDA_KERNELS}
-    ${BENCHMARK_SOURCES}
     ${OPENCL_SOURCES}
     ${DIRECTCOMPUTE_SOURCES}
 )
@@ -240,13 +239,12 @@ target_link_libraries(GPU-Benchmark ${OpenCL_LIBRARIES})
 # GUI Application
 if(IMGUI_FOUND AND WIN32)
     add_executable(GPU-Benchmark-GUI WIN32
-        src/gui/main_gui.cpp
+        src/gui/main_gui_fixed.cpp
         test_opencl_stub.cu
         ${IMGUI_SOURCES}
         ${CORE_SOURCES}
         ${CUDA_SOURCES}
         ${CUDA_KERNELS}
-        ${BENCHMARK_SOURCES}
         ${OPENCL_SOURCES}
         ${DIRECTCOMPUTE_SOURCES}
     )

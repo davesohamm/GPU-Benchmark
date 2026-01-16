@@ -28,6 +28,7 @@ OpenCLBackend::OpenCLBackend()
     , m_startEvent(nullptr)
     , m_stopEvent(nullptr)
     , m_timingActive(false)
+    , m_accumulatedTime(0.0)
     , m_initialized(false)
     , m_lastError("")
     , m_logger(Logger::GetInstance())
@@ -232,6 +233,7 @@ void OpenCLBackend::StartTimer() {
     clSetUserEventStatus(m_startEvent, CL_COMPLETE);
     
     m_timingActive = true;
+    m_accumulatedTime = 0.0;  // Reset accumulated time
 }
 
 void OpenCLBackend::StopTimer() {
@@ -249,11 +251,8 @@ double OpenCLBackend::GetElapsedTime() {
     // Wait for queue to complete
     Synchronize();
     
-    // Note: For accurate timing, we use event profiling on individual kernel executions
-    // The timing is calculated per-kernel basis in ExecuteKernel()
-    // This method returns 0 as we handle timing differently in OpenCL
-    
-    return 0.0;
+    // Return accumulated time from all kernel executions
+    return m_accumulatedTime;
 }
 
 bool OpenCLBackend::ExecuteKernel(const std::string& kernelName, const KernelParams& params) {
@@ -385,10 +384,21 @@ bool OpenCLBackend::ExecuteKernel(const std::string& kernelName,
     
     // Wait for completion
     clWaitForEvents(1, &event);
-    
+
+    // If timing is active, get execution time from event
+    if (m_timingActive) {
+        cl_ulong timeStart, timeEnd;
+        clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &timeStart, nullptr);
+        clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &timeEnd, nullptr);
+        
+        // Convert nanoseconds to milliseconds and accumulate
+        double executionTimeMS = (timeEnd - timeStart) / 1000000.0;
+        m_accumulatedTime += executionTimeMS;
+    }
+
     // Clean up event
     clReleaseEvent(event);
-    
+
     return true;
 }
 

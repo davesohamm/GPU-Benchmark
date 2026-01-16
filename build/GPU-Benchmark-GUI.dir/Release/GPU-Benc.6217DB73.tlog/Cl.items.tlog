@@ -1,4 +1,4 @@
-Y:\GPU-Benchmark\src\gui\main_gui.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\main_gui.obj
+Y:\GPU-Benchmark\src\gui\main_gui_fixed.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\main_gui_fixed.obj
 Y:\GPU-Benchmark\external\imgui\imgui.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\imgui.obj
 Y:\GPU-Benchmark\external\imgui\imgui_demo.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\imgui_demo.obj
 Y:\GPU-Benchmark\external\imgui\imgui_draw.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\imgui_draw.obj
@@ -11,9 +11,5 @@ Y:\GPU-Benchmark\src\core\Logger.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.di
 Y:\GPU-Benchmark\src\core\BenchmarkRunner.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\BenchmarkRunner.obj
 Y:\GPU-Benchmark\src\core\DeviceDiscovery.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\DeviceDiscovery.obj
 Y:\GPU-Benchmark\src\backends\cuda\CUDABackend.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\CUDABackend.obj
-Y:\GPU-Benchmark\src\benchmarks\VectorAddBenchmark.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\VectorAddBenchmark.obj
-Y:\GPU-Benchmark\src\benchmarks\MatrixMulBenchmark.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\MatrixMulBenchmark.obj
-Y:\GPU-Benchmark\src\benchmarks\ConvolutionBenchmark.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\ConvolutionBenchmark.obj
-Y:\GPU-Benchmark\src\benchmarks\ReductionBenchmark.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\ReductionBenchmark.obj
 Y:\GPU-Benchmark\src\backends\opencl\OpenCLBackend.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\OpenCLBackend.obj
 Y:\GPU-Benchmark\src\backends\directcompute\DirectComputeBackend.cpp;Y:\GPU-Benchmark\build\GPU-Benchmark-GUI.dir\Release\DirectComputeBackend.obj

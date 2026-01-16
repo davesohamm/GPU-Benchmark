@@ -350,7 +350,8 @@ private:
     cl_event m_startEvent;              ///< Timer start event
     cl_event m_stopEvent;               ///< Timer stop event
     bool     m_timingActive;            ///< Whether timing is currently active
-    
+    double   m_accumulatedTime;         ///< Accumulated execution time in milliseconds
+
     // State
     bool m_initialized;                 ///< Whether backend is initialized
     std::string m_lastError;            ///< Last error message

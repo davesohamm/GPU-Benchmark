@@ -1,0 +1,4 @@
+Backend,Benchmark,Elements,Time_ms,Bandwidth_GBs,Status
+CUDA,VectorAdd,1000000,0.0687309,174.594,PASS
+OpenCL,VectorAdd,1000000,0.0833382,143.992,PASS
+DirectCompute,VectorAdd,1000000,0.067785,177.03,PASS
